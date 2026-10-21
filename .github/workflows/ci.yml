@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux / GCC
+            os: ubuntu-24.04
+            cxx: g++
+            werror: "OFF"
+          - name: Linux / Clang (warnings as errors)
+            os: ubuntu-24.04
+            cxx: clang++
+            werror: "ON"
+          - name: Windows / MSVC
+            os: windows-latest
+            cxx: ""
+            werror: "OFF"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Eigen and Catch2 are downloaded at configure time from pinned release
+      # archives (SHA-256 verified in CMakeLists.txt / tests/CMakeLists.txt).
+      - name: Configure (Linux)
+        if: runner.os == 'Linux'
+        run: >
+          cmake -S . -B build
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_CXX_COMPILER=${{ matrix.cxx }}
+          -DGEOCONSTRAINT_WARNINGS_AS_ERRORS=${{ matrix.werror }}
+
+      - name: Build (Linux)
+        if: runner.os == 'Linux'
+        run: cmake --build build --parallel 2
+
+      - name: Test (Linux)
+        if: runner.os == 'Linux'
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Configure (Windows)
+        if: runner.os == 'Windows'
+        run: cmake -S . -B build -DGEOCONSTRAINT_WARNINGS_AS_ERRORS=${{ matrix.werror }}
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        run: cmake --build build --config Release --parallel 2
+
+      - name: Test (Windows)
+        if: runner.os == 'Windows'
+        run: ctest --test-dir build -C Release --output-on-failure
