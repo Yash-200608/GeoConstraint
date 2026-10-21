@@ -147,7 +147,9 @@ SolverResult solveScaledBracket(double scale, double residualTolerance, Point3* 
 TEST_CASE("The solver works across coordinate scales", "[numerical][scale][solver]") {
   for (const double scale : {1e-3, 1.0, 1e3, 1e6}) {
     Point3 c;
-    const SolverResult r = solveScaledBracket(scale, 1e-9, &c);
+    // The residual tolerance is absolute, so it must scale with the problem: at 1e6 the
+    // distance targets are ~7e7, where one ulp (~1.5e-8) already exceeds a fixed 1e-9.
+    const SolverResult r = solveScaledBracket(scale, 1e-9 * std::max(1.0, scale), &c);
     INFO("scale = " << scale);
     REQUIRE(r.status == SolverStatus::Converged);
     REQUIRE_POINT_NEAR(c, (Point3{50 * scale, 50 * scale, 0}), 1e-7 + 1e-9 * scale);
